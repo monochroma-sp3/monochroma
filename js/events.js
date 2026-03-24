@@ -22,7 +22,6 @@ import { db } from './db.js';
 import { syncManager } from './accounts/pocketbase.js';
 import { waveformGenerator } from './waveform.js';
 import { audioContextManager } from './audio-context.js';
-import { hapticLongPress, hapticMedium, hapticLight } from './haptics.js';
 import {
     trackPlayTrack,
     trackPauseTrack,
@@ -80,7 +79,7 @@ function handleTrackTouchStart(e) {
     longPressTimer = setTimeout(() => {
         isLongPress = true;
         toggleTrackSelection(trackItem, true, false);
-        hapticLongPress();
+        if (navigator.vibrate) navigator.vibrate(50);
     }, LONG_PRESS_DURATION);
 }
 
@@ -553,23 +552,17 @@ export function initializePlayerEvents(player, audioPlayer, scrobbler, ui) {
         setupMediaListeners(player.video);
     }
 
-    playPauseBtn.addEventListener('click', () => {
-        hapticMedium();
-        player.handlePlayPause();
-    });
+    playPauseBtn.addEventListener('click', () => player.handlePlayPause());
     nextBtn.addEventListener('click', () => {
-        hapticMedium();
         trackSkipTrack(player.currentTrack, 'next');
         player.playNext();
     });
     prevBtn.addEventListener('click', () => {
-        hapticMedium();
         trackSkipTrack(player.currentTrack, 'previous');
         player.playPrev();
     });
 
     shuffleBtn.addEventListener('click', () => {
-        hapticLight();
         player.toggleShuffle();
         trackToggleShuffle(player.shuffleActive);
         shuffleBtn.classList.toggle('active', player.shuffleActive);
@@ -577,7 +570,6 @@ export function initializePlayerEvents(player, audioPlayer, scrobbler, ui) {
     });
 
     repeatBtn.addEventListener('click', () => {
-        hapticLight();
         const mode = player.toggleRepeat();
         trackToggleRepeat(mode === REPEAT_MODE.OFF ? 'off' : mode === REPEAT_MODE.ALL ? 'all' : 'one');
         repeatBtn.classList.toggle('active', mode !== REPEAT_MODE.OFF);
@@ -2191,17 +2183,6 @@ export function initializeTrackInteractions(player, api, mainContent, contextMen
                     const startIndex = trackList.findIndex((t) => t.id == clickedTrackId);
 
                     player.setQueue(trackList, startIndex);
-
-                    // Set artist popular tracks context if on artist page
-                    console.log('[Events] Setting context:', {
-                        page: ui.currentPage,
-                        artistId: ui.currentArtistId,
-                        trackCount: trackList.length,
-                    });
-                    if (ui.currentPage === 'artist' && ui.currentArtistId) {
-                        player.setArtistPopularTracksContext(ui.currentArtistId, trackList, trackList.length, true);
-                    }
-
                     document.getElementById('shuffle-btn').classList.remove('active');
                     player.playTrackFromQueue();
                 }

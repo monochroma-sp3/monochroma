@@ -89,7 +89,7 @@ export class AuthManager {
 
     async sendPasswordReset(email) {
         try {
-            await auth.createRecovery(email, window.location.origin + '/reset-password');
+            await auth.createRecovery(email, window.location.origin + '/reset-password.html');
             alert(`Password reset email sent to ${email}`);
         } catch (error) {
             console.error('Password reset failed:', error);

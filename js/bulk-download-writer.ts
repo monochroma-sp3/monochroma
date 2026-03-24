@@ -1,5 +1,4 @@
 import { triggerDownload } from './download-utils';
-import { readableStreamIterator } from './readableStreamIterator';
 
 /**
  * A single entry to be included in a ZIP archive or written directly to a folder.

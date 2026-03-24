@@ -101,18 +101,8 @@ export function createRouter(ui) {
                     await ui.renderUnreleasedPage();
                 }
                 break;
-            case 'podcasts':
-                if (param) {
-                    await ui.renderPodcastPage(param);
-                } else {
-                    await ui.renderPodcastsBrowsePage();
-                }
-                break;
             case 'home':
                 await ui.renderHomePage();
-                break;
-            case 'donate':
-                ui.showPage('donate');
                 break;
             case 'user':
                 if (param && param.startsWith('@') && !param.includes('/')) {
@@ -137,6 +127,6 @@ export function updateTabTitle(player) {
         if (path.startsWith('/album/') || path.startsWith('/playlist/') || path.startsWith('/track/')) {
             return;
         }
-        document.title = 'Monochrome Music';
+        document.title = 'Monochroma Music';
     }
 }

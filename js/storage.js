@@ -1789,7 +1789,6 @@ export const sidebarSectionSettings = {
     SHOW_LIBRARY_KEY: 'sidebar-show-library',
     SHOW_RECENT_KEY: 'sidebar-show-recent',
     SHOW_UNRELEASED_KEY: 'sidebar-show-unreleased',
-    SHOW_DONATE_KEY: 'sidebar-show-donate',
     SHOW_SETTINGS_KEY: 'sidebar-show-settings',
     SHOW_ABOUT_KEY: 'sidebar-show-about',
     SHOW_DOWNLOAD_KEY: 'sidebar-show-download',
@@ -1801,7 +1800,6 @@ export const sidebarSectionSettings = {
         'sidebar-nav-library',
         'sidebar-nav-recent',
         'sidebar-nav-unreleased',
-        'sidebar-nav-donate',
         'sidebar-nav-settings',
         'sidebar-nav-about-bottom',
         'sidebar-nav-download-bottom',
@@ -1865,19 +1863,6 @@ export const sidebarSectionSettings = {
 
     setShowUnreleased(enabled) {
         localStorage.setItem(this.SHOW_UNRELEASED_KEY, enabled ? 'true' : 'false');
-    },
-
-    shouldShowDonate() {
-        try {
-            const val = localStorage.getItem(this.SHOW_DONATE_KEY);
-            return val === null ? true : val === 'true';
-        } catch {
-            return true;
-        }
-    },
-
-    setShowDonate(enabled) {
-        localStorage.setItem(this.SHOW_DONATE_KEY, enabled ? 'true' : 'false');
     },
 
     shouldShowSettings() {
@@ -1999,7 +1984,6 @@ export const sidebarSectionSettings = {
             { id: 'sidebar-nav-library', check: this.shouldShowLibrary() },
             { id: 'sidebar-nav-recent', check: this.shouldShowRecent() },
             { id: 'sidebar-nav-unreleased', check: this.shouldShowUnreleased() },
-            { id: 'sidebar-nav-donate', check: this.shouldShowDonate() },
             { id: 'sidebar-nav-settings', check: this.shouldShowSettings() },
             { id: 'sidebar-nav-about-bottom', check: this.shouldShowAbout() },
             { id: 'sidebar-nav-download-bottom', check: this.shouldShowDownload() },

@@ -21,7 +21,6 @@ export default defineConfig(({ mode }) => {
                 '!simpleicons': '/node_modules/simple-icons/icons',
                 '!': '/node_modules',
 
-                events: '/node_modules/events/events.js',
                 pocketbase: '/node_modules/pocketbase/dist/pocketbase.es.js',
                 stream: path.resolve(__dirname, 'stream-stub.js'), // Stub for stream module
             },

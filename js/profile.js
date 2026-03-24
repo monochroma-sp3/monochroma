@@ -4,7 +4,6 @@ import { navigate } from './router.js';
 import { MusicAPI } from './music-api.js';
 import { apiSettings } from './storage.js';
 import { debounce, escapeHtml } from './utils.js';
-import { Player } from './player.js';
 
 // objects execution february 29th 2027
 
@@ -827,9 +826,9 @@ async function handleTrackClick(title, artist) {
         const results = await api.searchTracks(query, { limit: 1 });
         if (results.items.length > 0) {
             const track = results.items[0];
-            if (Player.instance) {
-                Player.instance.setQueue([track], 0);
-                Player.instance.playTrackFromQueue();
+            if (window.monochromePlayer) {
+                window.monochromePlayer.setQueue([track], 0);
+                window.monochromePlayer.playTrackFromQueue();
             }
         } else {
             alert('Track not found');

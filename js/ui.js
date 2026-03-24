@@ -117,16 +117,6 @@ function sortTracks(tracks, sortType) {
 }
 
 export class UIRenderer {
-    static #instance = null;
-
-    static get instance() {
-        if (!UIRenderer.#instance) {
-            throw new Error('UIRenderer is not initialized. Call UIRenderer.initialize(api, player) first.');
-        }
-        return UIRenderer.#instance;
-    }
-
-    /** @private */
     constructor(api, player) {
         this.api = api;
         this.player = player;
@@ -136,7 +126,6 @@ export class UIRenderer {
         this.visualizer = null;
         this.renderLock = false;
         this.lastRecommendedTracks = [];
-        this.currentArtistId = null;
 
         // Listen for dynamic color reset events
         window.addEventListener('reset-dynamic-color', () => {
@@ -153,13 +142,6 @@ export class UIRenderer {
                 this.visualizer.updateDimming();
             }
         });
-    }
-
-    static async initialize(api, player) {
-        if (UIRenderer.#instance) {
-            throw new Error('UIRenderer is already initialized');
-        }
-        return (UIRenderer.#instance = new UIRenderer(api, player));
     }
 
     // Helper for Heart Icon
@@ -1647,12 +1629,6 @@ export class UIRenderer {
 
         document.querySelector('.main-content').scrollTop = 0;
 
-        // Clear artist context when navigating away from artist page
-        if (pageId !== 'artist') {
-            this.currentArtistId = null;
-            this.player.clearArtistPopularTracksContext();
-        }
-
         // Clear background and color if not on album, artist, playlist, or mix page
         if (!['album', 'artist', 'playlist', 'mix'].includes(pageId)) {
             this.setPageBackground(null);
@@ -1662,17 +1638,9 @@ export class UIRenderer {
         const downloadsdisabled = true;
         if (downloadsdisabled == true) {
             if (pageId === 'download') {
-                const maintenanceModal = document.getElementById('maintenance-modal');
-                const maintenanceHomeBtn = document.getElementById('maintenance-home-btn');
-                if (maintenanceModal) {
-                    maintenanceModal.classList.add('active');
-                    if (maintenanceHomeBtn) {
-                        maintenanceHomeBtn.onclick = () => {
-                            maintenanceModal.classList.remove('active');
-                            navigate('/');
-                        };
-                    }
-                }
+                window.open('https://mono.haxs.dev/download', '_blank');
+                navigate('/');
+                return;
             } else {
                 const maintenanceModal = document.getElementById('maintenance-modal');
                 if (maintenanceModal) {
@@ -2211,18 +2179,11 @@ export class UIRenderer {
         // Take random samples from each to form seeds
         const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
 
-        const combined = [
+        const seeds = [
             ...shuffle(playlistTracks).slice(0, 20),
             ...shuffle(favorites).slice(0, 20),
             ...shuffle(history).slice(0, 10),
         ];
-
-        const seenIds = new Set();
-        const seeds = combined.filter((t) => {
-            if (seenIds.has(t.id)) return false;
-            seenIds.add(t.id);
-            return true;
-        });
 
         return shuffle(seeds);
     }
@@ -2798,13 +2759,11 @@ export class UIRenderer {
         const artistsContainer = document.getElementById('search-artists-container');
         const albumsContainer = document.getElementById('search-albums-container');
         const playlistsContainer = document.getElementById('search-playlists-container');
-        const podcastsContainer = document.getElementById('search-podcasts-container');
 
         tracksContainer.innerHTML = this.createSkeletonTracks(8, true);
         artistsContainer.innerHTML = this.createSkeletonCards(6, true);
         albumsContainer.innerHTML = this.createSkeletonCards(6, false);
         playlistsContainer.innerHTML = this.createSkeletonCards(6, false);
-        podcastsContainer.innerHTML = this.createSkeletonCards(6, true);
 
         if (this.searchAbortController) {
             this.searchAbortController.abort();
@@ -2814,13 +2773,19 @@ export class UIRenderer {
 
         try {
             const provider = this.api.getCurrentProvider();
-            const results = await this.api.search(query, { signal, provider });
+            const [tracksResult, videosResult, artistsResult, albumsResult, playlistsResult] = await Promise.all([
+                this.api.searchTracks(query, { signal, provider }),
+                this.api.searchVideos(query, { signal, provider }),
+                this.api.searchArtists(query, { signal, provider }),
+                this.api.searchAlbums(query, { signal, provider }),
+                this.api.searchPlaylists(query, { signal, provider }),
+            ]);
 
-            let finalTracks = (results.tracks && results.tracks.items) || [];
-            let finalVideos = (results.videos && results.videos.items) || [];
-            let finalArtists = (results.artists && results.artists.items) || [];
-            let finalAlbums = (results.albums && results.albums.items) || [];
-            let finalPlaylists = (results.playlists && results.playlists.items) || [];
+            let finalTracks = tracksResult.items;
+            let finalVideos = videosResult.items || [];
+            let finalArtists = artistsResult.items;
+            let finalAlbums = albumsResult.items;
+            let finalPlaylists = playlistsResult.items;
 
             if (finalArtists.length === 0 && finalTracks.length > 0) {
                 const artistMap = new Map();
@@ -2914,8 +2879,6 @@ export class UIRenderer {
                     this.updateLikeState(el, 'playlist', playlist.uuid);
                 }
             });
-
-            await this.renderPodcastSearchResults(query);
         } catch (error) {
             if (error.name === 'AbortError') return;
             console.error('Search failed:', error);
@@ -2924,7 +2887,6 @@ export class UIRenderer {
             artistsContainer.innerHTML = errorMsg;
             albumsContainer.innerHTML = errorMsg;
             playlistsContainer.innerHTML = errorMsg;
-            podcastsContainer.innerHTML = errorMsg;
         }
     }
 
@@ -3957,7 +3919,6 @@ export class UIRenderer {
 
     async renderArtistPage(artistId, provider = null) {
         this.showPage('artist');
-        this.currentArtistId = artistId;
 
         const imageEl = document.getElementById('artist-detail-image');
         const nameEl = document.getElementById('artist-detail-name');
@@ -5098,6 +5059,12 @@ export class UIRenderer {
                                 </button>`
                                         : ''
                                 }
+                                <button class="move-up" title="Move Up" ${index === 0 ? 'disabled' : ''}>
+                                    ${SVG_MOVE_UP(16)}
+                                </button>
+                                <button class="move-down" title="Move Down" ${index === instances.length - 1 ? 'disabled' : ''}>
+                                    ${SVG_MOVE_DOWN(16)}
+                                </button>
                             </div>
                         </li>
                     `;
@@ -5299,209 +5266,5 @@ export class UIRenderer {
             titleEl.textContent = 'Track not found';
             artistEl.innerHTML = '';
         }
-    }
-
-    async renderPodcastsBrowsePage() {
-        this.showPage('podcasts-browse');
-        const trendingContainer = document.getElementById('podcasts-trending-container');
-        const recentContainer = document.getElementById('podcasts-recent-container');
-        trendingContainer.innerHTML = this.createSkeletonCards(12, true);
-        recentContainer.innerHTML = this.createSkeletonCards(12, true);
-
-        try {
-            const { podcastsAPI } = await import('./podcasts-api.js');
-            const trendingResult = await podcastsAPI.getTrendingPodcasts({ max: 24 });
-            if (trendingResult.items.length > 0) {
-                trendingContainer.innerHTML = trendingResult.items
-                    .map((podcast) => this.createPodcastCardHTML(podcast))
-                    .join('');
-                this.attachPodcastCardListeners(trendingContainer, trendingResult.items);
-            } else {
-                trendingContainer.innerHTML = createPlaceholder('No trending podcasts found.');
-            }
-        } catch (error) {
-            console.error('Failed to load trending podcasts:', error);
-            trendingContainer.innerHTML = createPlaceholder('Failed to load trending podcasts.');
-        }
-
-        document.title = 'Podcasts - Monochrome Music';
-    }
-
-    cleanupPodcastState() {
-        this.podcastState = null;
-    }
-
-    async renderPodcastPage(podcastId) {
-        this.cleanupPodcastState();
-        this.showPage('podcasts');
-
-        this.podcastState = {
-            id: podcastId,
-            episodes: [],
-            offset: 0,
-            hasMore: true,
-            isLoading: false,
-        };
-
-        const nameEl = document.getElementById('podcasts-detail-name');
-        const metaEl = document.getElementById('podcasts-detail-meta');
-        const imageEl = document.getElementById('podcasts-detail-image');
-        const episodesContainer = document.getElementById('podcasts-episodes-container');
-
-        nameEl.textContent = 'Loading...';
-        metaEl.textContent = '';
-        episodesContainer.innerHTML = this.createSkeletonTracks(8, true);
-
-        try {
-            const { podcastsAPI } = await import('./podcasts-api.js');
-            const podcastResult = await podcastsAPI.getPodcastById(podcastId);
-
-            if (podcastResult) {
-                nameEl.textContent = podcastResult.title;
-                metaEl.textContent = `${podcastResult.episodeCount} episodes • ${podcastResult.author}`;
-                if (podcastResult.image) {
-                    imageEl.src = podcastResult.image;
-                    this.setPageBackground(podcastResult.image);
-                }
-
-                this.podcastState.podcastTitle = podcastResult.title;
-                const playBtn = document.getElementById('play-podcasts-btn');
-            } else {
-                this.podcastState.podcastTitle = 'Unknown Podcast';
-            }
-
-            document.title = `${podcastResult?.title || 'Podcast'} - Monochrome Music`;
-
-            episodesContainer.innerHTML = '';
-            await this.loadAllPodcastEpisodes();
-        } catch (error) {
-            console.error('Failed to load podcast:', error);
-            nameEl.textContent = 'Podcast not found';
-            episodesContainer.innerHTML = createPlaceholder('Failed to load podcast.');
-        }
-    }
-
-    async loadAllPodcastEpisodes() {
-        this.podcastState.isLoading = true;
-        const episodesContainer = document.getElementById('podcasts-episodes-container');
-        episodesContainer.innerHTML = this.createSkeletonTracks(8, true);
-
-        try {
-            const { podcastsAPI } = await import('./podcasts-api.js');
-            const result = await podcastsAPI.getPodcastEpisodes(this.podcastState.id, {
-                max: 10000,
-            });
-
-            this.podcastState.episodes = result.items;
-            this.podcastState.hasMore = false;
-
-            const podcastTitle = this.podcastState.podcastTitle || 'Unknown Podcast';
-            const tracks = result.items.map((ep) => this.transformPodcastEpisodeToTrack(ep, podcastTitle));
-            this.renderListWithTracks(episodesContainer, tracks, true);
-
-            const playBtn = document.getElementById('play-podcasts-btn');
-            if (playBtn && result.items.length > 0) {
-                playBtn.onclick = () => {
-                    const tracksToPlay = this.podcastState.episodes.map((ep) =>
-                        this.transformPodcastEpisodeToTrack(ep, podcastTitle)
-                    );
-                    if (this.player) {
-                        this.player.setQueue(tracksToPlay, 0);
-                        this.player.playTrackFromQueue();
-                    }
-                };
-            }
-        } catch (error) {
-            console.error('Failed to load podcast episodes:', error);
-            episodesContainer.innerHTML = createPlaceholder('Failed to load episodes.');
-        }
-
-        this.podcastState.isLoading = false;
-    }
-
-    async renderPodcastSearchResults(query) {
-        const podcastsContainer = document.getElementById('search-podcasts-container');
-        podcastsContainer.innerHTML = this.createSkeletonCards(12, true);
-
-        try {
-            const { podcastsAPI } = await import('./podcasts-api.js');
-            const result = await podcastsAPI.searchPodcasts(query, { max: 20 });
-
-            if (result.items.length > 0) {
-                podcastsContainer.innerHTML = result.items
-                    .map((podcast) => this.createPodcastCardHTML(podcast))
-                    .join('');
-                this.attachPodcastCardListeners(podcastsContainer, result.items);
-            } else {
-                podcastsContainer.innerHTML = createPlaceholder('No podcasts found.');
-            }
-        } catch (error) {
-            console.error('Podcast search failed:', error);
-            podcastsContainer.innerHTML = createPlaceholder('Failed to search podcasts.');
-        }
-    }
-
-    createPodcastCardHTML(podcast) {
-        const title = escapeHtml(podcast.title || 'Unknown Podcast');
-        const author = escapeHtml(podcast.author || '');
-        const image = podcast.image || '';
-        const description = escapeHtml((podcast.description || '').substring(0, 120));
-        const episodeCount = podcast.episodeCount || 0;
-
-        return `
-            <div class="card" data-podcast-id="${podcast.id}">
-                <div class="card-image-container">
-                    <img src="${image}" alt="${title}" loading="lazy" onerror="this.style.display='none'" />
-                    <div class="card-image-placeholder" ${image ? 'style="display:none"' : ''}>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23333" width="100" height="100"/><circle cx="50" cy="45" r="20" fill="%23666"/><rect x="35" y="70" width="30" height="15" rx="3" fill="%23666"/></svg>
-                    </div>
-                </div>
-                <div class="card-info">
-                    <h3 class="card-title">${title}</h3>
-                    <p class="card-subtitle">${author}</p>
-                    <p class="card-description">${description}${podcast.description?.length > 120 ? '...' : ''}</p>
-                    <span class="card-meta">${episodeCount} episodes</span>
-                </div>
-            </div>
-        `;
-    }
-
-    attachPodcastCardListeners(container, podcasts) {
-        const cards = container.querySelectorAll('.card[data-podcast-id]');
-        cards.forEach((card) => {
-            const podcastId = card.dataset.podcastId;
-            const podcast = podcasts.find((p) => p.id === podcastId);
-            if (podcast) {
-                card.addEventListener('click', () => {
-                    navigate(`/podcasts/${podcastId}`);
-                });
-            }
-        });
-    }
-
-    transformPodcastEpisodeToTrack(episode, podcastTitle = 'Unknown Podcast') {
-        return {
-            id: `podcast_${episode.id}`,
-            title: episode.title,
-            artist: { id: null, name: podcastTitle },
-            artists: [{ id: null, name: podcastTitle }],
-            album: {
-                id: null,
-                title: podcastTitle,
-                cover: episode.image || episode.feedImage || '',
-            },
-            duration: episode.duration,
-            explicit: episode.explicit,
-            dateAdded: episode.datePublished,
-            isPodcast: true,
-            enclosureUrl: episode.enclosureUrl,
-            enclosureType: episode.enclosureType,
-            enclosureLength: episode.enclosureLength,
-            episodeNumber: episode.episode,
-            episodeType: episode.episodeType,
-            season: episode.season,
-            description: episode.description,
-            podcastEpisode: episode,
-        };
     }
 }

@@ -1,7 +1,7 @@
 export class MusicDatabase {
     constructor() {
         this.dbName = 'MonochromeDB';
-        this.version = 11;
+        this.version = 9;
         this.db = null;
     }
 
@@ -23,11 +23,6 @@ export class MusicDatabase {
 
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
-
-                // v10 introduced track_ratings (bad PR) — remove it
-                if (db.objectStoreNames.contains('track_ratings')) {
-                    db.deleteObjectStore('track_ratings');
-                }
 
                 // Favorites stores
                 if (!db.objectStoreNames.contains('favorites_tracks')) {
@@ -112,6 +107,7 @@ export class MusicDatabase {
             const store = transaction.objectStore(storeName);
             const index = store.index('timestamp');
 
+            // Check the most recent entry
             const cursorReq = index.openCursor(null, 'prev');
 
             cursorReq.onsuccess = (e) => {
@@ -119,9 +115,11 @@ export class MusicDatabase {
                 if (cursor) {
                     const lastTrack = cursor.value;
                     if (lastTrack.id === track.id) {
+                        // If same track, delete the old entry so we just update the timestamp
                         store.delete(cursor.primaryKey);
                     }
                 }
+                // Add the new entry
                 store.put(entry);
             };
 
@@ -262,10 +260,6 @@ export class MusicDatabase {
                 mixes: item.mixes || null,
                 isTracker: item.isTracker || (item.id && String(item.id).startsWith('tracker-')),
                 trackerInfo: item.trackerInfo || null,
-                isPodcast: item.isPodcast || (item.id && String(item.id).startsWith('podcast_')) || null,
-                enclosureUrl: item.enclosureUrl || null,
-                enclosureType: item.enclosureType || null,
-                enclosureLength: item.enclosureLength || null,
                 audioUrl: item.remoteUrl || item.audioUrl || null,
                 remoteUrl: item.remoteUrl || null,
                 audioQuality: item.audioQuality || null,
