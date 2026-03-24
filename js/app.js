@@ -893,6 +893,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('xspf-import-panel').style.display = importType === 'xspf' ? 'block' : 'none';
             document.getElementById('xml-import-panel').style.display = importType === 'xml' ? 'block' : 'none';
             document.getElementById('m3u-import-panel').style.display = importType === 'm3u' ? 'block' : 'none';
+            document.getElementById('navidrome-import-panel').style.display = importType === 'navidrome' ? 'block' : 'none';
 
             // Clear all file inputs except the active one
             document.getElementById('csv-file-input').value =
@@ -905,7 +906,51 @@ document.addEventListener('DOMContentLoaded', async () => {
                 importType === 'xml' ? document.getElementById('xml-file-input').value : '';
             document.getElementById('m3u-file-input').value =
                 importType === 'm3u' ? document.getElementById('m3u-file-input').value : '';
+
+            if (importType !== 'navidrome') {
+                document.getElementById('navidrome-username-input').value = '';
+                document.getElementById('navidrome-password-input').value = '';
+                document.getElementById('navidrome-playlist-select').innerHTML = '';
+                document.getElementById('navidrome-playlists-container').style.display = 'none';
+            }
         });
+    });
+
+    let navidromePlaylistsCache = [];
+    document.getElementById('navidrome-login-btn')?.addEventListener('click', async () => {
+        const username = document.getElementById('navidrome-username-input').value.trim();
+        const password = document.getElementById('navidrome-password-input').value.trim();
+        if (!username || !password) {
+            const { showNotification } = await loadDownloadsModule();
+            showNotification('Please enter both username and password.');
+            return;
+        }
+        const btn = document.getElementById('navidrome-login-btn');
+        btn.textContent = 'Loading...';
+        btn.disabled = true;
+        try {
+            const serverUrl = 'https://waves.haxs.dev/music';
+            const url = `${serverUrl}/rest/getPlaylists?u=${encodeURIComponent(username)}&p=${encodeURIComponent(password)}&v=1.16.1&c=monochroma&f=json`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data['subsonic-response'] && data['subsonic-response'].status === 'ok') {
+                const playlists = data['subsonic-response'].playlists.playlist || [];
+                navidromePlaylistsCache = playlists;
+                const selectElement = document.getElementById('navidrome-playlist-select');
+                selectElement.innerHTML = '<option value="">Select a playlist...</option>' + playlists.map(p => `<option value="${p.id}">${p.name} (${p.songCount} tracks)</option>`).join('');
+                document.getElementById('navidrome-playlists-container').style.display = 'block';
+                btn.textContent = 'Fetch Playlists';
+            } else {
+                throw new Error(data['subsonic-response']?.error?.message || 'Login failed');
+            }
+        } catch (err) {
+            console.error(err);
+            const { showNotification } = await loadDownloadsModule();
+            showNotification('Error fetching Navidrome playlists: ' + err.message);
+            btn.textContent = 'Fetch Playlists';
+        } finally {
+            btn.disabled = false;
+        }
     });
     const spotifyBtn = document.getElementById('csv-spotify-btn');
     const appleBtn = document.getElementById('csv-apple-btn');
@@ -1338,6 +1383,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('xspf-file-input').value = '';
             document.getElementById('xml-file-input').value = '';
             document.getElementById('m3u-file-input').value = '';
+            document.getElementById('navidrome-username-input').value = '';
+            document.getElementById('navidrome-password-input').value = '';
+            document.getElementById('navidrome-playlist-select').innerHTML = '';
+            document.getElementById('navidrome-playlists-container').style.display = 'none';
 
             // Reset import tabs to CSV
             document.querySelectorAll('.import-tab').forEach((tab) => {
@@ -1348,6 +1397,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('xspf-import-panel').style.display = 'none';
             document.getElementById('xml-import-panel').style.display = 'none';
             document.getElementById('m3u-import-panel').style.display = 'none';
+            document.getElementById('navidrome-import-panel').style.display = 'none';
 
             // Reset Public Toggle
             const publicToggle = document.getElementById('playlist-public-toggle');
@@ -1956,6 +2006,109 @@ document.addEventListener('DOMContentLoaded', async () => {
                         } catch (error) {
                             console.error('Failed to parse M3U!', error);
                             alert('Failed to parse M3U file! ' + error.message);
+                            progressElement.style.display = 'none';
+                            return;
+                        } finally {
+                            setTimeout(() => {
+                                progressElement.style.display = 'none';
+                            }, 1000);
+                        }
+                    } else if (document.getElementById('navidrome-playlist-select')?.value) {
+                        importSource = 'navidrome_import';
+                        const playlistId = document.getElementById('navidrome-playlist-select').value;
+                        const username = document.getElementById('navidrome-username-input').value.trim();
+                        const password = document.getElementById('navidrome-password-input').value.trim();
+                        const {
+                            progressElement,
+                            progressFill,
+                            progressCurrent,
+                            progressTotal,
+                            currentTrackElement,
+                            currentArtistElement,
+                        } = setupProgressElements();
+
+                        try {
+                            progressElement.style.display = 'block';
+                            progressFill.style.width = '0%';
+                            progressCurrent.textContent = '0';
+                            currentTrackElement.textContent = 'Fetching Navidrome playlist...';
+                            if (currentArtistElement) currentArtistElement.textContent = '';
+                            
+                            const serverUrl = 'https://waves.haxs.dev/music';
+                            const url = `${serverUrl}/rest/getPlaylist?id=${playlistId}&u=${encodeURIComponent(username)}&p=${encodeURIComponent(password)}&v=1.16.1&c=monochroma&f=json`;
+                            const res = await fetch(url);
+                            const data = await res.json();
+                            
+                            if (data['subsonic-response'] && data['subsonic-response'].status === 'ok') {
+                                const playlistData = data['subsonic-response'].playlist;
+                                const entries = playlistData.entry || [];
+                                
+                                if (!name) name = playlistData.name;
+                                if (!description && playlistData.comment) description = playlistData.comment;
+
+                                let finalCoverUrl = '';
+                                if (!cover && playlistData.coverArt) {
+                                    try {
+                                        currentTrackElement.textContent = 'Uploading cover art...';
+                                        const coverFetchUrl = `${serverUrl}/rest/getCoverArt?id=${playlistData.coverArt}&u=${encodeURIComponent(username)}&p=${encodeURIComponent(password)}&v=1.16.1&c=monochroma`;
+                                        const imgRes = await fetch(coverFetchUrl);
+                                        if (imgRes.ok) {
+                                            const imgBlob = await imgRes.blob();
+                                            const file = new File([imgBlob], `navidrome_${playlistData.coverArt}.jpg`, { type: imgBlob.type || 'image/jpeg' });
+                                            finalCoverUrl = await uploadCoverImage(file);
+                                            cover = finalCoverUrl;
+                                        }
+                                    } catch (e) {
+                                        console.warn('Failed to upload cover art from Navidrome', e);
+                                    }
+                                }
+                                
+                                progressTotal.textContent = entries.length.toString();
+                                
+                                const jspfData = {
+                                    playlist: {
+                                        title: playlistData.name,
+                                        creator: username,
+                                        annotation: playlistData.comment || '',
+                                        image: finalCoverUrl,
+                                        track: entries.map(e => ({
+                                            title: e.title,
+                                            creator: e.artist,
+                                            album: e.album
+                                        }))
+                                    }
+                                };
+                                const jspfText = JSON.stringify(jspfData);
+                                
+                                const result = await parseJSPF(jspfText, api, (progress) => {
+                                    const percentage = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+                                    progressFill.style.width = `${Math.min(percentage, 100)}%`;
+                                    progressCurrent.textContent = progress.current.toString();
+                                    progressTotal.textContent = progress.total.toString();
+                                    currentTrackElement.textContent = progress.currentTrack;
+                                    if (currentArtistElement) currentArtistElement.textContent = progress.currentArtist || '';
+                                });
+                                
+                                tracks = result.tracks;
+                                const missingTracks = result.missingTracks;
+
+                                if (tracks.length === 0) {
+                                    alert('No valid tracks found or matched from Navidrome.');
+                                    progressElement.style.display = 'none';
+                                    return;
+                                }
+                                
+                                if (missingTracks.length > 0) {
+                                    setTimeout(() => {
+                                        showMissingTracksNotification(missingTracks, name || 'Untitled');
+                                    }, 500);
+                                }
+                            } else {
+                                throw new Error(data['subsonic-response']?.error?.message || 'Failed to fetch playlist');
+                            }
+                        } catch (err) {
+                            console.error('Navidrome Import Error:', err);
+                            alert(`Error importing from Navidrome: ${err.message}`);
                             progressElement.style.display = 'none';
                             return;
                         } finally {

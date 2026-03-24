@@ -252,9 +252,9 @@
                                 cursor: pointer;
                                 padding: 0.25rem 0.5rem;
                             ">
-                        CSV
+                        File CSV
                     </button>
-                    <button type="button" class="import-tab" data-import-type="jspf" style="
+                    <button type="button" class="import-tab" data-import-type="navidrome" style="
                                 background: transparent;
                                 border: none;
                                 color: var(--foreground);
@@ -262,37 +262,7 @@
                                 padding: 0.25rem 0.5rem;
                                 opacity: 0.7;
                             ">
-                        JSPF
-                    </button>
-                    <button type="button" class="import-tab" data-import-type="xspf" style="
-                                background: transparent;
-                                border: none;
-                                color: var(--foreground);
-                                cursor: pointer;
-                                padding: 0.25rem 0.5rem;
-                                opacity: 0.7;
-                            ">
-                        XSPF
-                    </button>
-                    <button type="button" class="import-tab" data-import-type="xml" style="
-                                background: transparent;
-                                border: none;
-                                color: var(--foreground);
-                                cursor: pointer;
-                                padding: 0.25rem 0.5rem;
-                                opacity: 0.7;
-                            ">
-                        XML
-                    </button>
-                    <button type="button" class="import-tab" data-import-type="m3u" style="
-                                background: transparent;
-                                border: none;
-                                color: var(--foreground);
-                                cursor: pointer;
-                                padding: 0.25rem 0.5rem;
-                                opacity: 0.7;
-                            ">
-                        M3U
+                        Spotify 2
                     </button>
                 </div>
 
@@ -403,6 +373,24 @@
                     <br />
                     <input type="file" id="m3u-file-input" class="btn-secondary" accept=".m3u,.m3u8"
                         style="width: 100%; margin-bottom: 0.5rem" />
+                </div>
+
+                <div id="navidrome-import-panel" class="import-panel" style="display: none">
+                    <p style="margin-bottom: 0.5rem; font-size: 0.9rem">Import from Spotify2</p>
+                    <p style="font-size: 0.8rem; margin: 0 0 1rem 0">
+                        Import playlists from Chromawaves.
+                    </p>
+                    <input type="text" id="navidrome-username-input" class="template-input" placeholder="Username"
+                        style="width: 100%; margin-bottom: 0.5rem" />
+                    <input type="password" id="navidrome-password-input" class="template-input" placeholder="Password"
+                        style="width: 100%; margin-bottom: 0.5rem" />
+                    <button type="button" id="navidrome-login-btn" class="btn-secondary"
+                        style="width: 100%; margin-bottom: 0.5rem">Fetch Playlists</button>
+
+                    <div id="navidrome-playlists-container" style="display: none; margin-top: 1rem">
+                        <select id="navidrome-playlist-select" class="template-input"
+                            style="width: 100%; margin-bottom: 0.5rem"></select>
+                    </div>
                 </div>
 
                 <p style="font-size: 0.8rem; margin: 0">
