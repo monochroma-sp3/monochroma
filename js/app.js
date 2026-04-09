@@ -825,7 +825,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('xspf-import-panel').style.display = importType === 'xspf' ? 'block' : 'none';
             document.getElementById('xml-import-panel').style.display = importType === 'xml' ? 'block' : 'none';
             document.getElementById('m3u-import-panel').style.display = importType === 'm3u' ? 'block' : 'none';
-            document.getElementById('navidrome-import-panel').style.display = importType === 'navidrome' ? 'block' : 'none';
+            document.getElementById('navidrome-import-panel').style.display =
+                importType === 'navidrome' ? 'block' : 'none';
 
             // Clear all file inputs except the active one
             document.getElementById('csv-file-input').value =
@@ -873,7 +874,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const playlists = data['subsonic-response'].playlists.playlist || [];
                 navidromePlaylistsCache = playlists;
                 const selectElement = document.getElementById('navidrome-playlist-select');
-                selectElement.innerHTML = '<option value="">Select a playlist...</option>' + playlists.map(p => `<option value="${p.id}">${p.name} (${p.songCount} tracks)</option>`).join('');
+                selectElement.innerHTML =
+                    '<option value="">Select a playlist...</option>' +
+                    playlists.map((p) => `<option value="${p.id}">${p.name} (${p.songCount} tracks)</option>`).join('');
                 document.getElementById('navidrome-playlists-container').style.display = 'block';
                 btn.textContent = 'Fetch Playlists';
             } else {
@@ -1348,7 +1351,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('xspf-file-input').value = '';
             document.getElementById('xml-file-input').value = '';
             document.getElementById('m3u-file-input').value = '';
-            
+
             const nUsernameInput = document.getElementById('navidrome-username-input');
             const nPasswordInput = document.getElementById('navidrome-password-input');
             const nPlaylistSelect = document.getElementById('navidrome-playlist-select');
@@ -1999,16 +2002,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                             progressCurrent.textContent = '0';
                             currentTrackElement.textContent = 'Fetching Navidrome playlist...';
                             if (currentArtistElement) currentArtistElement.textContent = '';
-                            
+
                             const serverUrl = 'https://waves.haxs.dev/music';
                             const url = `${serverUrl}/rest/getPlaylist?id=${playlistId}&u=${encodeURIComponent(username)}&p=${encodeURIComponent(password)}&v=1.16.1&c=monochroma&f=json`;
                             const res = await fetch(url);
                             const data = await res.json();
-                            
+
                             if (data['subsonic-response'] && data['subsonic-response'].status === 'ok') {
                                 const playlistData = data['subsonic-response'].playlist;
                                 const entries = playlistData.entry || [];
-                                
+
                                 if (!name) name = playlistData.name;
                                 if (!description && playlistData.comment) description = playlistData.comment;
 
@@ -2020,7 +2023,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         const imgRes = await fetch(coverFetchUrl);
                                         if (imgRes.ok) {
                                             const imgBlob = await imgRes.blob();
-                                            const file = new File([imgBlob], `navidrome_${playlistData.coverArt}.jpg`, { type: imgBlob.type || 'image/jpeg' });
+                                            const file = new File([imgBlob], `navidrome_${playlistData.coverArt}.jpg`, {
+                                                type: imgBlob.type || 'image/jpeg',
+                                            });
                                             finalCoverUrl = await uploadCoverImage(file);
                                             cover = finalCoverUrl;
                                         }
@@ -2028,33 +2033,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         console.warn('Failed to upload cover art from Navidrome', e);
                                     }
                                 }
-                                
+
                                 progressTotal.textContent = entries.length.toString();
-                                
+
                                 const jspfData = {
                                     playlist: {
                                         title: playlistData.name,
                                         creator: username,
                                         annotation: playlistData.comment || '',
                                         image: finalCoverUrl,
-                                        track: entries.map(e => ({
+                                        track: entries.map((e) => ({
                                             title: e.title,
                                             creator: e.artist,
-                                            album: e.album
-                                        }))
-                                    }
+                                            album: e.album,
+                                        })),
+                                    },
                                 };
                                 const jspfText = JSON.stringify(jspfData);
-                                
+
                                 const result = await parseJSPF(jspfText, api, (progress) => {
-                                    const percentage = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+                                    const percentage =
+                                        progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
                                     progressFill.style.width = `${Math.min(percentage, 100)}%`;
                                     progressCurrent.textContent = progress.current.toString();
                                     progressTotal.textContent = progress.total.toString();
                                     currentTrackElement.textContent = progress.currentTrack;
-                                    if (currentArtistElement) currentArtistElement.textContent = progress.currentArtist || '';
+                                    if (currentArtistElement)
+                                        currentArtistElement.textContent = progress.currentArtist || '';
                                 });
-                                
+
                                 tracks = result.tracks;
                                 const missingTracks = result.missingTracks;
 
@@ -2063,14 +2070,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     progressElement.style.display = 'none';
                                     return;
                                 }
-                                
+
                                 if (missingTracks.length > 0) {
                                     setTimeout(() => {
                                         showMissingTracksNotification(missingTracks, name || 'Untitled');
                                     }, 500);
                                 }
                             } else {
-                                throw new Error(data['subsonic-response']?.error?.message || 'Failed to fetch playlist');
+                                throw new Error(
+                                    data['subsonic-response']?.error?.message || 'Failed to fetch playlist'
+                                );
                             }
                         } catch (err) {
                             console.error('Navidrome Import Error:', err);
