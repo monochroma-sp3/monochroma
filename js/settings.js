@@ -5991,6 +5991,11 @@ export async function initializeSettings(scrobbler, player, api, ui) {
 
     // Blocked Content Management
     initializeBlockedContentManager();
+
+    // Subsonic / Third-Party App Integration
+    if (typeof initializeSubsonicIntegration === 'function') {
+        initializeSubsonicIntegration();
+    }
 }
 
 function initializeFontSettings() {
@@ -6434,4 +6439,95 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function initializeSubsonicIntegration() {
+    const container = document.getElementById('subsonic-integration-container');
+    const enableBtn = document.getElementById('enable-subsonic-btn');
+    const passwordDisplay = document.getElementById('subsonic-password-display');
+    const passwordText = document.getElementById('subsonic-password-text');
+    const usernameText = document.getElementById('subsonic-username');
+
+    if (!container || !enableBtn) return;
+
+    async function updateSubsonicUI() {
+        if (!authManager) return;
+        const user = authManager.user;
+        if (!user) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = '';
+
+        try {
+            if (!syncManager) return;
+            const data = await syncManager.getUserData();
+            if (!data) return;
+
+            const privacy = data.profile?.privacy || {};
+            if (usernameText) {
+                usernameText.textContent = data.profile?.username || user.email || 'your-username';
+            }
+
+            if (privacy.subsonic_password) {
+                passwordText.textContent = privacy.subsonic_password;
+                passwordDisplay.style.display = '';
+                enableBtn.style.display = 'none';
+            } else {
+                passwordDisplay.style.display = 'none';
+                enableBtn.style.display = '';
+            }
+        } catch (e) {
+            console.error('[Subsonic] Failed to load integration state:', e);
+        }
+    }
+
+    enableBtn.addEventListener('click', async () => {
+        if (!authManager || !syncManager) return;
+        const user = authManager.user;
+        if (!user) {
+            alert('Please sign in first.');
+            return;
+        }
+
+        enableBtn.disabled = true;
+        enableBtn.textContent = 'Generating...';
+
+        try {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let newPassword = '';
+            for (let i = 0; i < 14; i++) {
+                newPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+
+            const record = await syncManager._getUserRecord(user.$id);
+            if (!record) {
+                throw new Error('User record not found in PocketBase');
+            }
+
+            let privacy = syncManager.safeParseInternal(record.privacy, 'privacy', {});
+            privacy.subsonic_password = newPassword;
+            await syncManager._updateUserJSON(user.$id, 'privacy', privacy);
+
+            syncManager._userRecordCache = null;
+
+            passwordText.textContent = newPassword;
+            passwordDisplay.style.display = '';
+            enableBtn.style.display = 'none';
+        } catch (e) {
+            console.error('[Subsonic] Failed to generate password:', e);
+            alert('Failed to generate Subsonic password: ' + e.message);
+            enableBtn.disabled = false;
+            enableBtn.textContent = 'Enable Subsonic Integration';
+        }
+    });
+
+    updateSubsonicUI();
+
+    if (authManager && authManager.onAuthStateChanged) {
+        authManager.onAuthStateChanged(() => {
+            updateSubsonicUI();
+        });
+    }
 }

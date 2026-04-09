@@ -7,7 +7,7 @@ export async function onRequest(context) {
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>Monochrome Music | Listening Parties</title>
+            <title>Monochroma Music | Listening Parties</title>
             <meta name="description" content="Listen to music with your friends">
             <meta name="theme-color" content="#000000">
 
