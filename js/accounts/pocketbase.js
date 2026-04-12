@@ -13,6 +13,23 @@ console.log('[PocketBase] Using URL:', POCKETBASE_URL);
 const pb = new PocketBase(POCKETBASE_URL);
 pb.autoCancellation(false);
 
+pb.beforeSend = function (url, reqOpts) {
+    try {
+        const u = new URL(url);
+        u.searchParams.delete('f_id');
+        u.searchParams.delete('p_id');
+        url = u.toString();
+    } catch (e) {}
+    
+    // Per SDK v0.26+, gestiamo anche i query/params se sono nell'oggetto reqOpts
+    if (reqOpts && reqOpts.query) {
+        delete reqOpts.query.f_id;
+        delete reqOpts.query.p_id;
+    }
+    
+    return { url, reqOpts };
+};
+
 const syncManager = {
     pb: pb,
     _userRecordCache: null,

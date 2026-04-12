@@ -5,7 +5,7 @@ dist
 .vite
 .claude
 # Docker
-.env
+
 # Neutralino
 .tmp/
 .vitest-attachments/
@@ -17,3 +17,5 @@ auth_storage/
 www
 neutralino.js
 package-lock.json
+.env
+deploy.sh

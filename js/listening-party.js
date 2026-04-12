@@ -321,22 +321,30 @@ export class ListeningPartyManager {
 
     async loadMembers() {
         const f_id = authManager.user ? authManager.user.$id : 'guest';
-        this.members = await pb
-            .collection('party_members')
-            .getFullList({ filter: `party = "${this.currentParty.id}"`, sort: '-is_host,name', f_id });
-        this.renderMembers();
+        try {
+            this.members = await pb
+                .collection('party_members')
+                .getFullList({ filter: `party = "${this.currentParty.id}"`, sort: '-is_host,name', f_id });
+            this.renderMembers();
+        } catch (e) {
+            console.error('Failed to load members:', e);
+        }
     }
 
     async loadMessages() {
         const f_id = authManager.user ? authManager.user.$id : 'guest';
-        const res = await pb
-            .collection('party_messages')
-            .getList(1, 50, { filter: `party = "${this.currentParty.id}"`, sort: '-created', f_id });
-        this.messages = res.items.reverse();
-        const container = document.getElementById('party-chat-messages');
-        if (container) {
-            container.innerHTML = '';
-            this.messages.forEach((m) => this.addChatMessage(m));
+        try {
+            const res = await pb
+                .collection('party_messages')
+                .getList(1, 50, { filter: `party = "${this.currentParty.id}"`, sort: '-created', f_id });
+            this.messages = res.items.reverse();
+            const container = document.getElementById('party-chat-messages');
+            if (container) {
+                container.innerHTML = '';
+                this.messages.forEach((m) => this.addChatMessage(m));
+            }
+        } catch (e) {
+            console.error('Failed to load messages:', e);
         }
     }
 
