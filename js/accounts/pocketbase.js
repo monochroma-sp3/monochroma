@@ -20,13 +20,13 @@ pb.beforeSend = function (url, reqOpts) {
         u.searchParams.delete('p_id');
         url = u.toString();
     } catch (e) {}
-    
+
     // Per SDK v0.26+, gestiamo anche i query/params se sono nell'oggetto reqOpts
     if (reqOpts && reqOpts.query) {
         delete reqOpts.query.f_id;
         delete reqOpts.query.p_id;
     }
-    
+
     return { url, reqOpts };
 };
 
