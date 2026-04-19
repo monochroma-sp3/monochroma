@@ -19,3 +19,7 @@ neutralino.js
 package-lock.json
 .env
 deploy.sh
+# Direnv
+.envrc
+# vim
+.lazy.lua
