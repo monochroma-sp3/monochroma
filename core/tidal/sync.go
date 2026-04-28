@@ -6,10 +6,35 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
 )
+
+// recentSyncCache tracks queries that have been JIT-synced recently.
+// The value is the time.Time of the last sync. This avoids hammering hifi-api
+// with repeated calls for the same query (e.g. typed character-by-character).
+var recentSyncCache sync.Map // map[string]time.Time
+
+const syncCacheTTL = 60 * time.Second
+
+// WasSyncedRecently returns true if the query was JIT-synced within syncCacheTTL.
+// Used by the Subsonic search handler to skip the async sync when a query is hot.
+func WasSyncedRecently(query string) bool {
+	if v, ok := recentSyncCache.Load(query); ok {
+		if time.Since(v.(time.Time)) < syncCacheTTL {
+			return true
+		}
+	}
+	return false
+}
+
+// MarkSynced records that a query sync has been dispatched so that subsequent
+// calls within syncCacheTTL are skipped.
+func MarkSynced(query string) {
+	recentSyncCache.Store(query, time.Now())
+}
 
 // SyncSearch searches Tidal for the given query and syncs the results into the local database
 // so that subsequent Subsonic database queries will return the results seamlessly.

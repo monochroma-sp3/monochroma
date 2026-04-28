@@ -71,18 +71,33 @@ func (api *Router) searchAll(ctx context.Context, sp *searchParams, musicFolderI
 
 	var tidalLibID int
 	if conf.Server.Tidal.Enabled {
-		// Resolve the Tidal library ID once and pass it into SyncSearch so
-		// the JIT sync doesn't re-query the libraries table itself.
+		// Resolve the Tidal library ID synchronously — it is needed immediately
+		// below to inject the Tidal library into the DB-filter so Subsonic
+		// clients that pass only their local musicFolderId still see Tidal results.
 		if id, err := tidal.GetOrCreateTidalLibrary(ctx, api.ds); err == nil {
 			tidalLibID = id
 		}
-		client := tidal.NewClient()
-		limit := sp.songCount
-		if limit < 20 {
-			limit = 20
-		}
-		if err := tidal.SyncSearchWithLibrary(ctx, api.ds, client, q, limit, tidalLibID); err != nil {
-			log.Error(ctx, "Failed to JIT sync Tidal", "query", q, err)
+		// Fire the hifi-api JIT sync in the background so the Subsonic response
+		// is returned immediately from the local FTS5 index.  A 60-second query
+		// cache (WasSyncedRecently / MarkSynced) prevents redundant calls when
+		// the user types the same query multiple times in quick succession.
+		// Results from the background sync will be visible on the next search.
+		if !tidal.WasSyncedRecently(q) {
+			tidal.MarkSynced(q)
+			syncLimit := sp.songCount
+			if syncLimit < 20 {
+				syncLimit = 20
+			}
+			syncQuery := q
+			syncLibID := tidalLibID
+			syncDS := api.ds
+			go func() {
+				bgCtx := context.Background()
+				client := tidal.NewClient()
+				if err := tidal.SyncSearchWithLibrary(bgCtx, syncDS, client, syncQuery, syncLimit, syncLibID); err != nil {
+					log.Error(bgCtx, "Background Tidal JIT sync failed", "query", syncQuery, err)
+				}
+			}()
 		}
 	}
 
