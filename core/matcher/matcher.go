@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"regexp"
+	"strings"
 
 	"github.com/Masterminds/squirrel"
 	"github.com/navidrome/navidrome/conf"
@@ -12,6 +14,16 @@ import (
 	"github.com/navidrome/navidrome/utils/str"
 	"github.com/xrash/smetrics"
 )
+
+// versionSuffixRe matches trailing parenthetical/bracket content that describes a version,
+// remaster, remix, live recording, or similar variant — e.g. "(2020 Digital Master)",
+// "[Remastered]", "(Radio Edit)", "(Live at Wembley)". Used to normalize titles before
+// fuzzy matching so that streaming-service variants match Last.fm's canonical names.
+var versionSuffixRe = regexp.MustCompile(`(?i)\s*[\(\[][^)\]]*\b(?:remaster|remix|version|edit|live|demo|acoustic|instrumental|mix|extended|bonus|radio|single|original|mono|stereo|deluxe|digital|master)[^)\]]*[\)\]][\s\(\[\]\)]*$`)
+
+func normalizeTitle(title string) string {
+	return strings.TrimSpace(versionSuffixRe.ReplaceAllString(title, ""))
+}
 
 // Matcher matches agent song results to local library tracks.
 type Matcher struct {
@@ -282,7 +294,7 @@ type sanitizedTrack struct {
 func newSanitizedTrack(mf *model.MediaFile) sanitizedTrack {
 	return sanitizedTrack{
 		mf:     mf,
-		title:  str.SanitizeFieldForSorting(mf.Title),
+		title:  str.SanitizeFieldForSorting(normalizeTitle(mf.Title)),
 		artist: str.SanitizeFieldForSortingNoArticle(mf.Artist),
 		album:  str.SanitizeFieldForSorting(mf.Album),
 	}
@@ -414,7 +426,7 @@ func (m *Matcher) buildTitleQueries(songs []agents.Song, priorMatches ...map[str
 			continue
 		}
 		queries = append(queries, songQuery{
-			title:      str.SanitizeFieldForSorting(s.Name),
+			title:      str.SanitizeFieldForSorting(normalizeTitle(s.Name)),
 			artist:     str.SanitizeFieldForSortingNoArticle(s.Artist),
 			artistMBID: s.ArtistMBID,
 			album:      str.SanitizeFieldForSorting(s.Album),

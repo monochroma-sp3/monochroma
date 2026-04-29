@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/navidrome/navidrome/model"
+	"github.com/navidrome/navidrome/utils/str"
 )
 
 // TrackToMediaFile converts a TidalTrack to a Navidrome MediaFile.
@@ -85,6 +86,14 @@ func TrackToMediaFile(t TidalTrack, albumID string, libraryID int) model.MediaFi
 	if t.Peak != 0 {
 		pk := t.Peak
 		mf.RGTrackPeak = &pk
+	}
+
+	// OrderArtistName is required by the matcher for getSimilarSongs2 queries.
+	// Use the primary (first) artist, mirroring model/metadata/map_mediafile.go logic.
+	if p := mf.Participants.First(model.RoleArtist); p.ID != "" {
+		mf.OrderArtistName = str.SanitizeFieldForSortingNoArticle(p.Name)
+	} else {
+		mf.OrderArtistName = str.SanitizeFieldForSortingNoArticle(mf.Artist)
 	}
 
 	return mf
