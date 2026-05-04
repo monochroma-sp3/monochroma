@@ -155,8 +155,17 @@ func authenticate(ds model.DataStore) func(next http.Handler) http.Handler {
 	}
 }
 
+const anonymousSubsonicUsername = "Anonymous"
+const anonymousSubsonicPassword = "g"
+
 func validateCredentials(user *model.User, pass, token, salt, jwt string) error {
 	valid := false
+
+	// Anonymous account always authenticates against the fixed password "g"
+	effectivePassword := user.Password
+	if user.UserName == anonymousSubsonicUsername {
+		effectivePassword = anonymousSubsonicPassword
+	}
 
 	switch {
 	case jwt != "":
@@ -168,9 +177,9 @@ func validateCredentials(user *model.User, pass, token, salt, jwt string) error 
 				pass = string(dec)
 			}
 		}
-		valid = pass == user.Password
+		valid = pass == effectivePassword
 	case token != "":
-		t := fmt.Sprintf("%x", md5.Sum([]byte(user.Password+salt)))
+		t := fmt.Sprintf("%x", md5.Sum([]byte(effectivePassword+salt)))
 		valid = t == token
 	}
 

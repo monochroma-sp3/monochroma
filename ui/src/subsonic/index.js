@@ -81,8 +81,9 @@ const getCoverArtUrl = (record, size, square) => {
   // TODO Move this logic to server
   if (record.album) {
     return baseUrl(url('getCoverArt', 'mf-' + record.id, options))
-  } else if (record.albumArtist) {
-    return baseUrl(url('getCoverArt', 'al-' + record.id, options))
+  } else if (record.albumCount !== undefined) {
+    // This is an artist
+    return baseUrl(url('getCoverArt', 'ar-' + record.id, options))
   } else if (record.sync !== undefined) {
     // This is a playlist
     return baseUrl(url('getCoverArt', 'pl-' + record.id, options))
@@ -90,7 +91,8 @@ const getCoverArtUrl = (record, size, square) => {
     // This is a radio station
     return baseUrl(url('getCoverArt', 'ra-' + record.id, options))
   } else {
-    return baseUrl(url('getCoverArt', 'ar-' + record.id, options))
+    // Fallback to album, even if albumArtist is empty
+    return baseUrl(url('getCoverArt', 'al-' + record.id, options))
   }
 }
 

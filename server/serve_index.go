@@ -64,6 +64,7 @@ func serveIndex(ds model.DataStore, fs fs.FS, shareInfo *model.Share) http.Handl
 			"enableUserEditing":         conf.Server.EnableUserEditing,
 			"enableArtworkUpload":       conf.Server.EnableArtworkUpload,
 			"enableSharing":             conf.Server.EnableSharing,
+			"enablePublicRegistration":  conf.Server.EnablePublicRegistration,
 			"shareURL":                  conf.Server.ShareURL,
 			"defaultDownloadableShare":  conf.Server.DefaultDownloadableShare,
 			"devSidebarPlaylists":       conf.Server.DevSidebarPlaylists,

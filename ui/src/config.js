@@ -25,6 +25,7 @@ const defaultConfig = {
   enableUserEditing: true,
   enableArtworkUpload: true,
   enableSharing: true,
+  enablePublicRegistration: false,
   shareURL: '',
   defaultDownloadableShare: true,
   devSidebarPlaylists: true,

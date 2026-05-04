@@ -82,6 +82,7 @@ type configOptions struct {
 	EnableArtworkUpload             bool
 	MaxImageUploadSize              string
 	EnableSharing                   bool
+	EnablePublicRegistration        bool
 	ShareURL                        string
 	DefaultShareExpiration          time.Duration
 	DefaultDownloadableShare        bool

@@ -80,6 +80,10 @@ export const useImageUrl = (url) => {
           if (!res.ok) {
             throw new Error(`HTTP ${res.status}`)
           }
+          const ct = res.headers.get('Content-Type') || ''
+          if (ct.includes('json') || ct.includes('xml')) {
+            throw new Error(`getCoverArt returned non-image response (${ct})`)
+          }
           return res.blob()
         })
         .then((blob) => {

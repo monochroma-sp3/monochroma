@@ -8,6 +8,7 @@ import CardActions from '@material-ui/core/CardActions'
 import CircularProgress from '@material-ui/core/CircularProgress'
 import Link from '@material-ui/core/Link'
 import TextField from '@material-ui/core/TextField'
+import Typography from '@material-ui/core/Typography'
 import { ThemeProvider, makeStyles } from '@material-ui/core/styles'
 import {
   createMuiTheme,
@@ -90,6 +91,11 @@ const useStyles = makeStyles(
       wordBreak: 'break-word',
       fontSize: '0.875em',
     },
+    switchLink: {
+      padding: '0 1em 1em 1em',
+      textAlign: 'center',
+      fontSize: '0.875em',
+    },
   }),
   { name: 'NDLogin' },
 )
@@ -108,7 +114,7 @@ const renderInput = ({
   />
 )
 
-const FormLogin = ({ loading, handleSubmit, validate }) => {
+const FormLogin = ({ loading, handleSubmit, validate, onSwitchToRegister, onLoginAsGuest }) => {
   const translate = useTranslate()
   const classes = useStyles()
 
@@ -175,6 +181,124 @@ const FormLogin = ({ loading, handleSubmit, validate }) => {
                   {translate('ra.auth.sign_in')}
                 </Button>
               </CardActions>
+              {config.enablePublicRegistration && onSwitchToRegister && (
+                <div className={classes.switchLink}>
+                  <Typography variant="body2" component="span">
+                    {"Don't have an account? "}
+                  </Typography>
+                  <Link
+                    component="button"
+                    variant="body2"
+                    onClick={onSwitchToRegister}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    Register
+                  </Link>
+                </div>
+              )}
+              {onLoginAsGuest && (
+                <div className={classes.switchLink}>
+                  <Link
+                    component="button"
+                    variant="body2"
+                    onClick={onLoginAsGuest}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    Continue anonymously
+                  </Link>
+                </div>
+              )}
+            </Card>
+            <Notification />
+          </div>
+        </form>
+      )}
+    />
+  )
+}
+
+const FormRegister = ({ loading, handleSubmit, validate, onSwitchToLogin }) => {
+  const translate = useTranslate()
+  const classes = useStyles()
+
+  return (
+    <Form
+      onSubmit={handleSubmit}
+      validate={validate}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit} noValidate>
+          <div className={classes.main}>
+            <Card className={classes.card}>
+              <div className={classes.avatar}>
+                <img src={Logo} className={classes.icon} alt={'logo'} />
+              </div>
+              <div className={classes.systemName}>Create account</div>
+              <div className={classes.form}>
+                <div className={classes.input}>
+                  <Field
+                    autoFocus
+                    name="username"
+                    component={renderInput}
+                    label={translate('ra.auth.username')}
+                    disabled={loading}
+                    spellCheck={false}
+                  />
+                </div>
+                <div className={classes.input}>
+                  <Field
+                    name="email"
+                    component={renderInput}
+                    label={'Email'}
+                    type="email"
+                    disabled={loading}
+                    spellCheck={false}
+                  />
+                </div>
+                <div className={classes.input}>
+                  <Field
+                    name="password"
+                    component={renderInput}
+                    label={translate('ra.auth.password')}
+                    type="password"
+                    disabled={loading}
+                  />
+                </div>
+                <div className={classes.input}>
+                  <Field
+                    name="confirmPassword"
+                    component={renderInput}
+                    label={translate('ra.auth.confirmPassword')}
+                    type="password"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+              <CardActions className={classes.actions}>
+                <Button
+                  variant="contained"
+                  type="submit"
+                  color="primary"
+                  disabled={loading}
+                  className={classes.button}
+                  fullWidth
+                >
+                  {loading && <CircularProgress size={25} thickness={2} />}
+                  Register
+                </Button>
+              </CardActions>
+              <div className={classes.switchLink}>
+                <Typography variant="body2" component="span">
+                  {'Already have an account? '}
+                </Typography>
+                <Link
+                  component="button"
+                  variant="body2"
+                  onClick={onSwitchToLogin}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {translate('ra.auth.sign_in')}
+                </Link>
+              </div>
             </Card>
             <Notification />
           </div>
@@ -316,6 +440,7 @@ const FormSignUp = ({ loading, handleSubmit, validate }) => {
 
 const Login = ({ location }) => {
   const [loading, setLoading] = useState(false)
+  const [showRegister, setShowRegister] = useState(false)
   const translate = useTranslate()
   const notify = useNotify()
   const login = useLogin()
@@ -340,6 +465,37 @@ const Login = ({ location }) => {
       )
     },
     [dispatch, login, notify, setLoading, location],
+  )
+
+  const handleRegisterSubmit = useCallback(
+    async ({ username, password, email }) => {
+      setLoading(true)
+      try {
+        const res = await fetch('/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, email: email || '' }),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || 'Registration failed')
+        }
+        dispatch(clearQueue())
+        login({ username, password }, location.state ? location.state.nextPathname : '/').catch(
+          (error) => {
+            setLoading(false)
+            notify(
+              typeof error === 'string' ? error : 'ra.auth.sign_in_error',
+              'warning',
+            )
+          },
+        )
+      } catch (error) {
+        setLoading(false)
+        notify(error.message || 'Registration failed', 'warning')
+      }
+    },
+    [dispatch, login, notify, location],
   )
 
   const validateLogin = useCallback(
@@ -374,6 +530,21 @@ const Login = ({ location }) => {
     [translate, validateLogin],
   )
 
+  const handleGuestLogin = useCallback(() => {
+    setLoading(true)
+    dispatch(clearQueue())
+    login(
+      { username: 'Anonymous', password: 'g' },
+      location.state ? location.state.nextPathname : '/',
+    ).catch((error) => {
+      setLoading(false)
+      notify(
+        typeof error === 'string' ? error : 'ra.auth.sign_in_error',
+        'warning',
+      )
+    })
+  }, [dispatch, login, notify, location])
+
   if (config.firstTime) {
     return (
       <FormSignUp
@@ -383,11 +554,25 @@ const Login = ({ location }) => {
       />
     )
   }
+
+  if (showRegister) {
+    return (
+      <FormRegister
+        handleSubmit={handleRegisterSubmit}
+        validate={validateSignup}
+        loading={loading}
+        onSwitchToLogin={() => setShowRegister(false)}
+      />
+    )
+  }
+
   return (
     <FormLogin
       handleSubmit={handleSubmit}
       validate={validateLogin}
       loading={loading}
+      onSwitchToRegister={() => setShowRegister(true)}
+      onLoginAsGuest={handleGuestLogin}
     />
   )
 }

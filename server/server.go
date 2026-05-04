@@ -217,6 +217,9 @@ func (s *Server) mountAuthenticationRoutes() chi.Router {
 			r.Post("/login", login(s.ds))
 		}
 		r.Post("/createAdmin", createAdmin(s.ds))
+		if conf.Server.EnablePublicRegistration {
+			r.Post("/register", register(s.ds))
+		}
 	})
 }
 

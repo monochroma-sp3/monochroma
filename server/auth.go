@@ -94,6 +94,9 @@ func buildAuthPayload(user *model.User) map[string]any {
 	return payload
 }
 
+const anonymousUsername = "Anonymous"
+const anonymousPassword = "g"
+
 func getCredentialsFromBody(r *http.Request) (username string, password string, err error) {
 	data := make(map[string]string)
 	decoder := json.NewDecoder(r.Body)
@@ -105,6 +108,57 @@ func getCredentialsFromBody(r *http.Request) (username string, password string, 
 	username = data["username"]
 	password = data["password"]
 	return username, password, nil
+}
+
+func getRegistrationBody(r *http.Request) (username, password, email string, err error) {
+	data := make(map[string]string)
+	if err = json.NewDecoder(r.Body).Decode(&data); err != nil {
+		err = errors.New("invalid request payload")
+		return
+	}
+	return data["username"], data["password"], data["email"], nil
+}
+
+func register(ds model.DataStore) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		username, password, email, err := getRegistrationBody(r)
+		if err != nil {
+			log.Error(r, "parsing request body", err)
+			_ = rest.RespondWithError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+		if username == "" || password == "" {
+			_ = rest.RespondWithError(w, http.StatusUnprocessableEntity, "username and password are required")
+			return
+		}
+		if username == anonymousUsername {
+			_ = rest.RespondWithError(w, http.StatusForbidden, "username not allowed")
+			return
+		}
+		existing, err := ds.User(r.Context()).FindByUsername(username)
+		if err == nil && existing != nil {
+			_ = rest.RespondWithError(w, http.StatusConflict, "username already taken")
+			return
+		}
+		now := time.Now()
+		caser := cases.Title(language.Und)
+		newUser := model.User{
+			ID:          id.NewRandom(),
+			UserName:    username,
+			Name:        caser.String(username),
+			Email:       email,
+			NewPassword: password,
+			IsAdmin:     false,
+			LastLoginAt: &now,
+		}
+		if err = ds.User(r.Context()).Put(&newUser); err != nil {
+			log.Error(r, "creating user", "username", username, err)
+			_ = rest.RespondWithError(w, http.StatusInternalServerError, "could not create user")
+			return
+		}
+		log.Info(r, "New user registered", "username", username)
+		doLogin(ds, username, password, w, r)
+	}
 }
 
 func createAdmin(ds model.DataStore) func(w http.ResponseWriter, r *http.Request) {
@@ -154,6 +208,35 @@ func createAdminUser(ctx context.Context, ds model.DataStore, username, password
 }
 
 func validateLogin(userRepo model.UserRepository, userName, password string) (*model.User, error) {
+	// Anonymous account always uses a fixed password regardless of what is stored.
+	if userName == anonymousUsername {
+		if password != anonymousPassword {
+			return nil, nil
+		}
+		u, err := userRepo.FindByUsernameWithPassword(userName)
+		if errors.Is(err, model.ErrNotFound) {
+			// Auto-create the Anonymous account on first guest login.
+			now := time.Now()
+			anon := model.User{
+				ID:          id.NewRandom(),
+				UserName:    anonymousUsername,
+				Name:        anonymousUsername,
+				NewPassword: anonymousPassword,
+				IsAdmin:     false,
+				LastLoginAt: &now,
+			}
+			if putErr := userRepo.Put(&anon); putErr != nil {
+				return nil, putErr
+			}
+			u, err = userRepo.FindByUsernameWithPassword(userName)
+		}
+		if err != nil {
+			return nil, err
+		}
+		_ = userRepo.UpdateLastLoginAt(u.ID)
+		return u, nil
+	}
+
 	u, err := userRepo.FindByUsernameWithPassword(userName)
 	if errors.Is(err, model.ErrNotFound) {
 		return nil, nil
